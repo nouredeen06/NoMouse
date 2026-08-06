@@ -271,7 +271,7 @@ class OverlayWindow(Gtk.Window):
             cr.line_to(region.x - ox + region.w, y)
         cr.stroke()
 
-        font_size = max(9, min(cw, ch) / 3.2)
+        font_size = max(15, min(cw, ch) / 3.2)
         cr.select_font_face("sans-serif")
         cr.set_font_size(font_size)
         for row in range(1, rows + 1):
