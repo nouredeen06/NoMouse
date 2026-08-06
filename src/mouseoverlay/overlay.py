@@ -55,7 +55,10 @@ except (ValueError, ImportError):
 # only needs a light 2x2 split for the rare case that needs it.
 STAGE_DIMS = [(16, 9), (4, 3), (2, 2)]
 
-HINT_DURATION_MS = 2500
+HINT_FADE_IN_MS = 200
+HINT_VISIBLE_MS = 4500
+HINT_FADE_OUT_MS = 600
+HINT_FADE_TICK_MS = 30
 
 
 def _col_letter(idx: int) -> str:
@@ -81,6 +84,7 @@ class OverlayWindow(Gtk.Window):
         self.history: list[tuple[Rect, int]] = []
         self.typed_row: Optional[int] = None  # 1-indexed
         self.typed_col: Optional[int] = None  # 0-indexed (a=0)
+        self.hint_dismissed = False
 
         self._setup_window()
         self._build_ui()
@@ -100,8 +104,8 @@ class OverlayWindow(Gtk.Window):
             f"""
             window {{ background-color: {self.config.background_rgba}; }}
             .mouseoverlay-inputbar {{
-                background-color: rgba(20, 20, 20, 0.92);
-                border: 2px solid rgba(255, 255, 255, 0.6);
+                background-color: rgba(20, 20, 20, 0.55);
+                border: 2px solid rgba(255, 255, 255, 0.45);
                 border-radius: 10px;
                 padding: 8px 16px;
                 min-width: 220px;
@@ -179,7 +183,9 @@ class OverlayWindow(Gtk.Window):
             overlay.set_overlay_pass_through(bar, True)
 
             self.hint_bar = bar
-            GLib.timeout_add(HINT_DURATION_MS, self._hide_hint)
+            bar.set_opacity(0.0)
+            self._hint_anim_start = GLib.get_monotonic_time()
+            GLib.timeout_add(HINT_FADE_TICK_MS, self._tick_hint_fade_in)
 
     def show_all_and_focus(self) -> None:
         self.show_all()
@@ -190,10 +196,41 @@ class OverlayWindow(Gtk.Window):
     def _stage_dims(self) -> tuple[int, int]:
         return STAGE_DIMS[self.stage_index]
 
-    def _hide_hint(self) -> bool:
+    def _tick_hint_fade_in(self) -> bool:
+        if self.hint_dismissed or self.hint_bar is None:
+            return False
+        elapsed = (GLib.get_monotonic_time() - self._hint_anim_start) / 1000
+        t = min(1.0, elapsed / HINT_FADE_IN_MS)
+        self.hint_bar.set_opacity(t)
+        if t >= 1.0:
+            GLib.timeout_add(HINT_VISIBLE_MS, self._start_hint_fade_out)
+            return False
+        return True
+
+    def _start_hint_fade_out(self) -> bool:
+        if not self.hint_dismissed:
+            self._hint_anim_start = GLib.get_monotonic_time()
+            GLib.timeout_add(HINT_FADE_TICK_MS, self._tick_hint_fade_out)
+        return False  # one-shot
+
+    def _tick_hint_fade_out(self) -> bool:
+        if self.hint_dismissed or self.hint_bar is None:
+            return False
+        elapsed = (GLib.get_monotonic_time() - self._hint_anim_start) / 1000
+        t = min(1.0, elapsed / HINT_FADE_OUT_MS)
+        self.hint_bar.set_opacity(1.0 - t)
+        if t >= 1.0:
+            self.hint_bar.hide()
+            return False
+        return True
+
+    def _hide_hint(self) -> None:
+        """Dismiss the hint immediately (called on the first real keystroke)."""
+        if self.hint_dismissed:
+            return
+        self.hint_dismissed = True
         if self.hint_bar is not None:
             self.hint_bar.hide()
-        return False  # one-shot timeout, don't repeat
 
     def _on_draw(self, _widget, cr) -> bool:
         region = self.current_region
