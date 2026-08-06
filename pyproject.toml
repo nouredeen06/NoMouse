@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mouseoverlay"
+version = "0.1.0"
+description = "Keyboard-driven grid-click overlay for Hyprland and X11"
+requires-python = ">=3.11"
+dependencies = [
+    "PyGObject>=3.42",
+]
+
+[project.scripts]
+mouseoverlay = "mouseoverlay.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mouseoverlay"]
