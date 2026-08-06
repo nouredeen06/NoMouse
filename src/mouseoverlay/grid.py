@@ -26,6 +26,13 @@ def cell_rect(region: Rect, grid: StageGrid, n: int) -> Rect:
     return Rect(x=region.x + col * cw, y=region.y + row * ch, w=cw, h=ch)
 
 
+def cell_rect_rc(region: Rect, cols: int, rows: int, row: int, col: int) -> Rect:
+    """Row/col addressed cell: row is 1-indexed, col is 0-indexed (a=0)."""
+    cw = region.w / cols
+    ch = region.h / rows
+    return Rect(x=region.x + col * cw, y=region.y + (row - 1) * ch, w=cw, h=ch)
+
+
 def resolve_region(monitor: MonitorGeometry, config: Config, numbers: list[int]) -> Rect:
     """Walk a sequence of 1-3 cell picks (one per stage) to a final Rect."""
     if not (1 <= len(numbers) <= 3):
