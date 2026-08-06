@@ -113,6 +113,8 @@ class OverlayWindow(Gtk.Window):
             .mouseoverlay-label {{
                 color: #ffffff;
                 font-size: 22px;
+                font-weight: bold;
+                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
             }}
             """.encode()
         )
@@ -174,9 +176,9 @@ class OverlayWindow(Gtk.Window):
             label.get_style_context().add_class("mouseoverlay-label")
 
             bar = Gtk.Box()
-            bar.set_valign(Gtk.Align.END)
+            bar.set_valign(Gtk.Align.START)
             bar.set_halign(Gtk.Align.CENTER)
-            bar.set_margin_bottom(32)
+            bar.set_margin_top(32)
             bar.get_style_context().add_class("mouseoverlay-inputbar")
             bar.pack_start(label, True, True, 0)
             overlay.add_overlay(bar)
