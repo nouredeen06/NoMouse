@@ -3,10 +3,15 @@
 Keyboard-driven grid-click overlay for Hyprland and X11 — like macOS/iOS Voice
 Control screen clicking, but keyboard controlled.
 
-Runs as a background daemon. `mouseoverlay --show` pops up a numbered grid
-overlay on the currently focused monitor. Type a cell number and press Enter
-to zoom into it (3 stages, default 8x6 -> 4x3 -> 3x3); after the final stage,
-Enter clicks the center of the chosen cell.
+Runs as a background daemon. `mouseoverlay --show` pops up a grid overlay on
+the currently focused monitor. Each cell is labeled with a row digit (1-9)
+and a column letter (a-p), e.g. `1a` or `9i`. Press the digit and letter keys
+in either order — no Enter needed, it confirms as soon as both are set:
+
+- Plain: left-click that cell's center.
+- Hold **Shift** on the completing keystroke: zoom into that cell instead
+  (up to 3 stages, each with a smaller grid).
+- Hold **Ctrl** on the completing keystroke: right-click that cell's center.
 
 ## Usage
 
@@ -19,13 +24,19 @@ mouseoverlay --status  # check whether the daemon is running
 
 While the overlay is showing:
 
-- Type digits + Enter: zoom into that cell (or click it, at the final stage).
-- Enter with empty input: left-click the center of the current cell/region.
-- `r` + Enter: right-click the center of the current cell/region.
-- Digits + `r` + Enter (e.g. `5r`): right-click the center of that cell
-  immediately, skipping any remaining zoom stages.
-- Backspace on empty input: go back to the previous zoom stage.
+- Type a digit or letter: highlights that row/column band; once both are
+  set it fires immediately (see above for the Shift/Ctrl modifiers).
+- Only one digit and one letter can be held at a time — a second press of
+  an already-filled slot is ignored.
+- Backspace: clears the most recently set digit/letter, or goes back one
+  zoom stage if both are already empty.
+- Enter with nothing typed: left-click the center of the current region
+  (Ctrl+Enter right-clicks it).
 - Escape: cancel, close the overlay without clicking.
+
+A one-line hint fades out on its own after a couple seconds (or on the
+first keystroke); set `show_hint = false` in the config to skip it
+entirely and show no textbox at all.
 
 ## System prerequisites
 
@@ -49,19 +60,9 @@ pip install -e .
 Optional config file at `~/.config/mouseoverlay/config.toml`:
 
 ```toml
-[stage1]
-cols = 8
-rows = 6
-
-[stage2]
-cols = 4
-rows = 3
-
-[stage3]
-cols = 3
-rows = 3
-
 background_rgba = "rgba(0, 0, 0, 0.35)"
+show_hint = true
 ```
 
-Missing or malformed config falls back to the defaults shown above.
+Missing or malformed config falls back to the defaults shown above. Grid
+stage sizes (16x9 -> 4x3 -> 2x2) are fixed in this branch, not configurable.

@@ -18,6 +18,10 @@ right-clicks it).
 Key reading is done from the physical (unshifted) keyval rather than the
 text GTK would insert, so Shift+1 is read as digit 1 (not '!').
 
+No persistent input box: a one-line hint fades out on its own (or on the
+first keystroke) and grid highlighting alone shows progress after that.
+Set show_hint = false in config.toml to skip the hint entirely.
+
 Stage grid sizes are fixed (not user-configurable), per design decision.
 """
 
@@ -50,6 +54,8 @@ except (ValueError, ImportError):
 # is already far more precise than the old single-stage grid, so stage 3
 # only needs a light 2x2 split for the rare case that needs it.
 STAGE_DIMS = [(16, 9), (4, 3), (2, 2)]
+
+HINT_DURATION_MS = 2500
 
 
 def _col_letter(idx: int) -> str:
@@ -158,18 +164,22 @@ class OverlayWindow(Gtk.Window):
         self.drawing_area.connect("draw", self._on_draw)
         overlay.add(self.drawing_area)
 
-        self.label = Gtk.Label()
-        self.label.get_style_context().add_class("mouseoverlay-label")
-        self._update_label()
+        self.hint_bar: Optional[Gtk.Box] = None
+        if self.config.show_hint:
+            label = Gtk.Label(label="1a/a1=click  +Shift=zoom  +Ctrl=right")
+            label.get_style_context().add_class("mouseoverlay-label")
 
-        bar = Gtk.Box()
-        bar.set_valign(Gtk.Align.END)
-        bar.set_halign(Gtk.Align.CENTER)
-        bar.set_margin_bottom(32)
-        bar.get_style_context().add_class("mouseoverlay-inputbar")
-        bar.pack_start(self.label, True, True, 0)
-        overlay.add_overlay(bar)
-        overlay.set_overlay_pass_through(bar, False)
+            bar = Gtk.Box()
+            bar.set_valign(Gtk.Align.END)
+            bar.set_halign(Gtk.Align.CENTER)
+            bar.set_margin_bottom(32)
+            bar.get_style_context().add_class("mouseoverlay-inputbar")
+            bar.pack_start(label, True, True, 0)
+            overlay.add_overlay(bar)
+            overlay.set_overlay_pass_through(bar, True)
+
+            self.hint_bar = bar
+            GLib.timeout_add(HINT_DURATION_MS, self._hide_hint)
 
     def show_all_and_focus(self) -> None:
         self.show_all()
@@ -180,13 +190,10 @@ class OverlayWindow(Gtk.Window):
     def _stage_dims(self) -> tuple[int, int]:
         return STAGE_DIMS[self.stage_index]
 
-    def _update_label(self) -> None:
-        row_str = str(self.typed_row) if self.typed_row is not None else "_"
-        col_str = _col_letter(self.typed_col) if self.typed_col is not None else "_"
-        if self.typed_row is None and self.typed_col is None:
-            self.label.set_text("type a row digit + column letter...")
-        else:
-            self.label.set_text(f"{row_str}{col_str}  (Shift=zoom, Ctrl=right)")
+    def _hide_hint(self) -> bool:
+        if self.hint_bar is not None:
+            self.hint_bar.hide()
+        return False  # one-shot timeout, don't repeat
 
     def _on_draw(self, _widget, cr) -> bool:
         region = self.current_region
@@ -253,6 +260,8 @@ class OverlayWindow(Gtk.Window):
         return keyval if ok else event.keyval
 
     def _on_key_press(self, _widget, event) -> bool:
+        self._hide_hint()
+
         if event.keyval == Gdk.KEY_Escape:
             self.destroy()
             return True
@@ -292,7 +301,6 @@ class OverlayWindow(Gtk.Window):
         return True  # swallow everything else while the overlay is up
 
     def _after_keystroke(self, mod_state: Gdk.ModifierType) -> None:
-        self._update_label()
         self.drawing_area.queue_draw()
         if self.typed_row is not None and self.typed_col is not None:
             self._confirm_pair(self.typed_row, self.typed_col, mod_state)
@@ -305,14 +313,12 @@ class OverlayWindow(Gtk.Window):
         else:
             self._go_back()
             return
-        self._update_label()
         self.drawing_area.queue_draw()
 
     def _go_back(self) -> None:
         if not self.history:
             return
         self.current_region, self.stage_index = self.history.pop()
-        self._update_label()
         self.drawing_area.queue_draw()
 
     def _confirm_pair(self, row: int, col: int, mod_state: Gdk.ModifierType) -> None:
@@ -332,7 +338,6 @@ class OverlayWindow(Gtk.Window):
             self.stage_index += 1
             self.typed_row = None
             self.typed_col = None
-            self._update_label()
             self.drawing_area.queue_draw()
             return
 

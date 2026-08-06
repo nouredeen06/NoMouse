@@ -21,6 +21,7 @@ class Config:
     stage2: StageGrid = field(default_factory=lambda: StageGrid(cols=4, rows=3))
     stage3: StageGrid = field(default_factory=lambda: StageGrid(cols=3, rows=3))
     background_rgba: str = "rgba(0, 0, 0, 0.35)"
+    show_hint: bool = True
 
 
 def _config_path() -> Path:
@@ -53,5 +54,9 @@ def load_config() -> Config:
     background_rgba = data.get("background_rgba")
     if isinstance(background_rgba, str):
         config.background_rgba = background_rgba
+
+    show_hint = data.get("show_hint")
+    if isinstance(show_hint, bool):
+        config.show_hint = show_hint
 
     return config
