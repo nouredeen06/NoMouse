@@ -253,6 +253,21 @@ class OverlayWindow(Gtk.Window):
         region = self.current_region
         cols, rows = self._stage_dims()
         ox, oy = self.monitor.x, self.monitor.y
+
+        # On a scaled Hyprland output (layer-shell), the drawing area's
+        # actual canvas is sized in *logical* pixels while self.monitor is
+        # in physical pixels from hyprctl - drawing straight in physical
+        # units overruns the real canvas (e.g. only the top-left ~60% of
+        # the grid is visible at 1.67x scale). Derive the scale from the
+        # real allocation rather than trusting monitor.scale, so it's
+        # self-correcting regardless of backend/rounding.
+        alloc = self.drawing_area.get_allocation()
+        sx = alloc.width / self.monitor.width if self.monitor.width else 1.0
+        sy = alloc.height / self.monitor.height if self.monitor.height else 1.0
+
+        def to_px(px: float, py: float) -> tuple[float, float]:
+            return (px - ox) * sx, (py - oy) * sy
+
         cw = region.w / cols
         ch = region.h / rows
 
@@ -262,42 +277,47 @@ class OverlayWindow(Gtk.Window):
         # column band if only one half is set so far.
         if self.typed_row is not None and self.typed_col is not None:
             rect = cell_rect_rc(region, cols, rows, self.typed_row, self.typed_col)
+            x, y = to_px(rect.x, rect.y)
             cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.45)
-            cr.rectangle(rect.x - ox, rect.y - oy, rect.w, rect.h)
+            cr.rectangle(x, y, rect.w * sx, rect.h * sy)
             cr.fill()
         elif self.typed_row is not None:
-            y = region.y - oy + (self.typed_row - 1) * ch
+            x, y = to_px(region.x, region.y + (self.typed_row - 1) * ch)
             cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.25)
-            cr.rectangle(region.x - ox, y, region.w, ch)
+            cr.rectangle(x, y, region.w * sx, ch * sy)
             cr.fill()
         elif self.typed_col is not None:
-            x = region.x - ox + self.typed_col * cw
+            x, y = to_px(region.x + self.typed_col * cw, region.y)
             cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.25)
-            cr.rectangle(x, region.y - oy, cw, region.h)
+            cr.rectangle(x, y, cw * sx, region.h * sy)
             cr.fill()
 
         cr.set_line_width(1.5)
         cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.85)
         for col in range(cols + 1):
-            x = region.x - ox + col * cw
-            cr.move_to(x, region.y - oy)
-            cr.line_to(x, region.y - oy + region.h)
+            x, y0 = to_px(region.x + col * cw, region.y)
+            _, y1 = to_px(region.x + col * cw, region.y + region.h)
+            cr.move_to(x, y0)
+            cr.line_to(x, y1)
         for row in range(rows + 1):
-            y = region.y - oy + row * ch
-            cr.move_to(region.x - ox, y)
-            cr.line_to(region.x - ox + region.w, y)
+            x0, y = to_px(region.x, region.y + row * ch)
+            x1, _ = to_px(region.x + region.w, region.y + row * ch)
+            cr.move_to(x0, y)
+            cr.line_to(x1, y)
         cr.stroke()
 
-        font_size = max(15, min(cw, ch) / 3.2)
+        font_size = max(15, min(cw * sx, ch * sy) / 3.2)
         cr.select_font_face("sans-serif")
         cr.set_font_size(font_size)
         for row in range(1, rows + 1):
             for col in range(cols):
                 label = f"{row}{_col_letter(col)}"
                 cell = cell_rect_rc(region, cols, rows, row, col)
+                cell_x, cell_y = to_px(cell.x, cell.y)
+                cell_w, cell_h = cell.w * sx, cell.h * sy
                 extents = cr.text_extents(label)
-                tx = cell.x - ox + cell.w / 2 - extents.width / 2 - extents.x_bearing
-                ty = cell.y - oy + cell.h / 2 - extents.height / 2 - extents.y_bearing
+                tx = cell_x + cell_w / 2 - extents.width / 2 - extents.x_bearing
+                ty = cell_y + cell_h / 2 - extents.height / 2 - extents.y_bearing
                 cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.95)
                 cr.move_to(tx, ty)
                 cr.show_text(label)
