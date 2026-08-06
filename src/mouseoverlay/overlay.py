@@ -226,6 +226,21 @@ class OverlayWindow(Gtk.Window):
             return False
         return True
 
+    def _theme_colors(self) -> tuple[Gdk.RGBA, Gdk.RGBA]:
+        """(foreground, accent) colors from the active GTK theme.
+
+        Queried off the drawing area's own style context (it carries no
+        custom CSS classes, so it reflects the theme's plain widget colors)
+        rather than hardcoding white/blue, so the grid and highlight follow
+        whatever GTK theme is active.
+        """
+        ctx = self.drawing_area.get_style_context()
+        fg = ctx.get_color(Gtk.StateFlags.NORMAL)
+        ok, accent = ctx.lookup_color("theme_selected_bg_color")
+        if not ok:
+            accent = ctx.get_background_color(Gtk.StateFlags.SELECTED)
+        return fg, accent
+
     def _hide_hint(self) -> None:
         """Dismiss the hint immediately (called on the first real keystroke)."""
         if self.hint_dismissed:
@@ -241,26 +256,28 @@ class OverlayWindow(Gtk.Window):
         cw = region.w / cols
         ch = region.h / rows
 
+        fg, accent = self._theme_colors()
+
         # highlight: a specific cell if both are set, else a whole row or
         # column band if only one half is set so far.
         if self.typed_row is not None and self.typed_col is not None:
             rect = cell_rect_rc(region, cols, rows, self.typed_row, self.typed_col)
-            cr.set_source_rgba(0.2, 0.6, 1.0, 0.45)
+            cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.45)
             cr.rectangle(rect.x - ox, rect.y - oy, rect.w, rect.h)
             cr.fill()
         elif self.typed_row is not None:
             y = region.y - oy + (self.typed_row - 1) * ch
-            cr.set_source_rgba(0.2, 0.6, 1.0, 0.25)
+            cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.25)
             cr.rectangle(region.x - ox, y, region.w, ch)
             cr.fill()
         elif self.typed_col is not None:
             x = region.x - ox + self.typed_col * cw
-            cr.set_source_rgba(0.2, 0.6, 1.0, 0.25)
+            cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.25)
             cr.rectangle(x, region.y - oy, cw, region.h)
             cr.fill()
 
         cr.set_line_width(1.5)
-        cr.set_source_rgba(1, 1, 1, 0.85)
+        cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.85)
         for col in range(cols + 1):
             x = region.x - ox + col * cw
             cr.move_to(x, region.y - oy)
@@ -281,7 +298,7 @@ class OverlayWindow(Gtk.Window):
                 extents = cr.text_extents(label)
                 tx = cell.x - ox + cell.w / 2 - extents.width / 2 - extents.x_bearing
                 ty = cell.y - oy + cell.h / 2 - extents.height / 2 - extents.y_bearing
-                cr.set_source_rgba(1, 1, 1, 0.95)
+                cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.95)
                 cr.move_to(tx, ty)
                 cr.show_text(label)
 
