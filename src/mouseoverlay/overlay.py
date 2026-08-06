@@ -1,16 +1,22 @@
 """GTK3 overlay window: row/column labeled grid, 3-stage zoom-to-click.
 
 Alternate interaction model (branch: rowcol-grid). Each cell is labeled with
-a row number (1-9) and a column letter (a-p), e.g. "1a" or "9i". Type the
-pair in either order (both "1a" and "a1" work) - as soon as both halves are
-typed it auto-confirms, no Enter needed:
-  - plain             -> left-click that cell's center
-  - held Shift         -> zoom into that cell instead (up to 3 stages)
-  - held Ctrl          -> right-click that cell's center
-Typing just a digit highlights that row; typing just a letter highlights
-that column. Backspace on an empty entry goes back one zoom stage. Escape
-cancels. Enter with an empty entry clicks the center of the current region
-(Ctrl+Enter right-clicks it).
+a row number (1-9) and a column letter (a-p), e.g. "1a" or "9i". Press the
+digit and letter keys in either order - as soon as both are set it
+auto-confirms, no Enter needed:
+  - plain               -> left-click that cell's center
+  - held Shift on the
+    completing keystroke -> zoom into that cell instead (up to 3 stages)
+  - held Ctrl on the
+    completing keystroke -> right-click that cell's center
+Only one digit and one letter can be held at a time (further presses of an
+already-filled slot are ignored). Backspace clears the most recently set
+slot, or goes back one zoom stage if both are empty. Escape cancels. Enter
+with nothing typed clicks the center of the current region (Ctrl+Enter
+right-clicks it).
+
+Key reading is done from the physical (unshifted) keyval rather than the
+text GTK would insert, so Shift+1 is read as digit 1 (not '!').
 
 Stage grid sizes are fixed (not user-configurable), per design decision.
 """
@@ -50,46 +56,6 @@ def _col_letter(idx: int) -> str:
     return chr(ord("a") + idx)
 
 
-class _ParsedInput:
-    """Result of parsing the entry text against the current stage's grid."""
-
-    def __init__(self, row: Optional[int], col: Optional[int], valid: bool):
-        self.row = row  # 1-indexed, or None
-        self.col = col  # 0-indexed (a=0), or None
-        self.valid = valid  # False if the text contains junk / out-of-range parts
-
-    @property
-    def is_pair(self) -> bool:
-        return self.valid and self.row is not None and self.col is not None
-
-
-def _parse_input(text: str, cols: int, rows: int) -> _ParsedInput:
-    text = text.strip().lower()
-
-    digits = "".join(c for c in text if c.isdigit())
-    letters = "".join(c for c in text if c.isalpha())
-
-    if len(digits) + len(letters) != len(text):
-        return _ParsedInput(None, None, valid=False)
-
-    row = None
-    if digits:
-        if len(digits) > 1 or not (1 <= int(digits) <= rows):
-            return _ParsedInput(None, None, valid=False)
-        row = int(digits)
-
-    col = None
-    if letters:
-        if len(letters) > 1:
-            return _ParsedInput(None, None, valid=False)
-        idx = ord(letters) - ord("a")
-        if not (0 <= idx < cols):
-            return _ParsedInput(None, None, valid=False)
-        col = idx
-
-    return _ParsedInput(row, col, valid=True)
-
-
 class OverlayWindow(Gtk.Window):
     def __init__(
         self,
@@ -107,8 +73,8 @@ class OverlayWindow(Gtk.Window):
         self.stage_index = 0
         self.current_region = Rect(monitor.x, monitor.y, monitor.width, monitor.height)
         self.history: list[tuple[Rect, int]] = []
-        self.partial: _ParsedInput = _ParsedInput(None, None, True)
-        self._last_key_state = Gdk.ModifierType(0)
+        self.typed_row: Optional[int] = None  # 1-indexed
+        self.typed_col: Optional[int] = None  # 0-indexed (a=0)
 
         self._setup_window()
         self._build_ui()
@@ -132,12 +98,9 @@ class OverlayWindow(Gtk.Window):
                 border: 2px solid rgba(255, 255, 255, 0.6);
                 border-radius: 10px;
                 padding: 8px 16px;
+                min-width: 220px;
             }}
-            .mouseoverlay-entry, .mouseoverlay-entry:focus {{
-                background-color: transparent;
-                background-image: none;
-                border: none;
-                box-shadow: none;
+            .mouseoverlay-label {{
                 color: #ffffff;
                 font-size: 22px;
             }}
@@ -195,31 +158,35 @@ class OverlayWindow(Gtk.Window):
         self.drawing_area.connect("draw", self._on_draw)
         overlay.add(self.drawing_area)
 
-        self.entry = Gtk.Entry()
-        self.entry.set_alignment(0.5)
-        self.entry.set_width_chars(12)
-        self.entry.set_placeholder_text("1a/a1 = click, +Shift = zoom, +Ctrl = right")
-        self.entry.get_style_context().add_class("mouseoverlay-entry")
-        self.entry.connect("changed", self._on_entry_changed)
-        self.entry.connect("key-press-event", self._on_entry_key_press)
+        self.label = Gtk.Label()
+        self.label.get_style_context().add_class("mouseoverlay-label")
+        self._update_label()
 
         bar = Gtk.Box()
         bar.set_valign(Gtk.Align.END)
         bar.set_halign(Gtk.Align.CENTER)
         bar.set_margin_bottom(32)
         bar.get_style_context().add_class("mouseoverlay-inputbar")
-        bar.pack_start(self.entry, False, False, 0)
+        bar.pack_start(self.label, True, True, 0)
         overlay.add_overlay(bar)
         overlay.set_overlay_pass_through(bar, False)
 
     def show_all_and_focus(self) -> None:
         self.show_all()
-        self.entry.grab_focus()
+        self.grab_focus()
 
     # -- drawing --------------------------------------------------------
 
     def _stage_dims(self) -> tuple[int, int]:
         return STAGE_DIMS[self.stage_index]
+
+    def _update_label(self) -> None:
+        row_str = str(self.typed_row) if self.typed_row is not None else "_"
+        col_str = _col_letter(self.typed_col) if self.typed_col is not None else "_"
+        if self.typed_row is None and self.typed_col is None:
+            self.label.set_text("type a row digit + column letter...")
+        else:
+            self.label.set_text(f"{row_str}{col_str}  (Shift=zoom, Ctrl=right)")
 
     def _on_draw(self, _widget, cr) -> bool:
         region = self.current_region
@@ -228,20 +195,20 @@ class OverlayWindow(Gtk.Window):
         cw = region.w / cols
         ch = region.h / rows
 
-        # highlight: a specific cell if a full pair is typed, else a whole
-        # row or column band if only one half of the pair is typed so far.
-        if self.partial.is_pair:
-            rect = cell_rect_rc(region, cols, rows, self.partial.row, self.partial.col)
+        # highlight: a specific cell if both are set, else a whole row or
+        # column band if only one half is set so far.
+        if self.typed_row is not None and self.typed_col is not None:
+            rect = cell_rect_rc(region, cols, rows, self.typed_row, self.typed_col)
             cr.set_source_rgba(0.2, 0.6, 1.0, 0.45)
             cr.rectangle(rect.x - ox, rect.y - oy, rect.w, rect.h)
             cr.fill()
-        elif self.partial.row is not None:
-            y = region.y - oy + (self.partial.row - 1) * ch
+        elif self.typed_row is not None:
+            y = region.y - oy + (self.typed_row - 1) * ch
             cr.set_source_rgba(0.2, 0.6, 1.0, 0.25)
             cr.rectangle(region.x - ox, y, region.w, ch)
             cr.fill()
-        elif self.partial.col is not None:
-            x = region.x - ox + self.partial.col * cw
+        elif self.typed_col is not None:
+            x = region.x - ox + self.typed_col * cw
             cr.set_source_rgba(0.2, 0.6, 1.0, 0.25)
             cr.rectangle(x, region.y - oy, cw, region.h)
             cr.fill()
@@ -276,43 +243,76 @@ class OverlayWindow(Gtk.Window):
 
     # -- input handling ---------------------------------------------------
 
-    def _on_entry_changed(self, _entry) -> None:
-        cols, rows = self._stage_dims()
-        self.partial = _parse_input(self.entry.get_text(), cols, rows)
-        self.drawing_area.queue_draw()
-
-        if self.partial.is_pair:
-            self._confirm_pair(self.partial.row, self.partial.col, self._last_key_state)
-
-    def _on_entry_key_press(self, _widget, event) -> bool:
-        if event.keyval == Gdk.KEY_Escape:
-            self.destroy()
-            return True
-        if event.keyval == Gdk.KEY_BackSpace and self.entry.get_text() == "":
-            self._go_back()
-            return True
-        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
-            if self.entry.get_text() == "":
-                right = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
-                self._do_click(self.current_region, "right" if right else "left")
-            return True
-        # Stash modifier state so the "changed" handler (fired by the default
-        # text-insert handling that runs after we return False here) knows
-        # whether Shift/Ctrl were held for the keystroke that completes a pair.
-        self._last_key_state = event.state
-        return False
+    def _base_keyval(self, event) -> int:
+        """Keyval for this key ignoring modifiers, so Shift+1 reads as '1'
+        rather than the shifted symbol ('!' on a US layout)."""
+        keymap = Gdk.Keymap.get_for_display(self.get_display())
+        ok, keyval, _group, _level, _consumed = keymap.translate_keyboard_state(
+            event.hardware_keycode, Gdk.ModifierType(0), event.group
+        )
+        return keyval if ok else event.keyval
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:
             self.destroy()
             return True
-        return False
+
+        if event.keyval == Gdk.KEY_BackSpace:
+            self._backspace()
+            return True
+
+        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+            if self.typed_row is None and self.typed_col is None:
+                right = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+                self._do_click(self.current_region, "right" if right else "left")
+            return True
+
+        base = self._base_keyval(event)
+        cols, rows = self._stage_dims()
+
+        digit = None
+        if Gdk.KEY_0 <= base <= Gdk.KEY_9:
+            digit = base - Gdk.KEY_0
+        elif Gdk.KEY_KP_0 <= base <= Gdk.KEY_KP_9:
+            digit = base - Gdk.KEY_KP_0
+
+        if digit is not None:
+            if self.typed_row is None and 1 <= digit <= rows:
+                self.typed_row = digit
+                self._after_keystroke(event.state)
+            return True
+
+        if Gdk.KEY_a <= base <= Gdk.KEY_z:
+            idx = base - Gdk.KEY_a
+            if self.typed_col is None and idx < cols:
+                self.typed_col = idx
+                self._after_keystroke(event.state)
+            return True
+
+        return True  # swallow everything else while the overlay is up
+
+    def _after_keystroke(self, mod_state: Gdk.ModifierType) -> None:
+        self._update_label()
+        self.drawing_area.queue_draw()
+        if self.typed_row is not None and self.typed_col is not None:
+            self._confirm_pair(self.typed_row, self.typed_col, mod_state)
+
+    def _backspace(self) -> None:
+        if self.typed_col is not None:
+            self.typed_col = None
+        elif self.typed_row is not None:
+            self.typed_row = None
+        else:
+            self._go_back()
+            return
+        self._update_label()
+        self.drawing_area.queue_draw()
 
     def _go_back(self) -> None:
         if not self.history:
             return
         self.current_region, self.stage_index = self.history.pop()
-        self.entry.set_text("")
+        self._update_label()
         self.drawing_area.queue_draw()
 
     def _confirm_pair(self, row: int, col: int, mod_state: Gdk.ModifierType) -> None:
@@ -330,8 +330,9 @@ class OverlayWindow(Gtk.Window):
             self.history.append((self.current_region, self.stage_index))
             self.current_region = rect
             self.stage_index += 1
-            self.partial = _ParsedInput(None, None, True)
-            self.entry.set_text("")
+            self.typed_row = None
+            self.typed_col = None
+            self._update_label()
             self.drawing_area.queue_draw()
             return
 
