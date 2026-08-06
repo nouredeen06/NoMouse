@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mouseoverlay"
+name = "nomouse"
 version = "0.1.0"
 description = "Keyboard-driven grid-click overlay for Hyprland and X11"
 requires-python = ">=3.11"
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mouseoverlay = "mouseoverlay.cli:main"
+nomouse = "nomouse.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mouseoverlay"]
+packages = ["src/nomouse"]

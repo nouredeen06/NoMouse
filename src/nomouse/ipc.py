@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 def socket_path() -> Path:
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
-    return Path(runtime_dir) / "mouseoverlay.sock"
+    return Path(runtime_dir) / "nomouse.sock"
 
 
 def send_command(cmd: str, timeout: float = 3.0) -> str:

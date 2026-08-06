@@ -1,4 +1,4 @@
-"""mouseoverlay CLI: start the daemon, or send it commands."""
+"""nomouse CLI: start the daemon, or send it commands."""
 
 import argparse
 import logging
@@ -6,21 +6,21 @@ import os
 import sys
 from pathlib import Path
 
-from mouseoverlay import ipc
+from nomouse import ipc
 
 log = logging.getLogger(__name__)
 
 
 def _log_dir() -> Path:
     state_home = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
-    d = Path(state_home) / "mouseoverlay"
+    d = Path(state_home) / "nomouse"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 def _start_daemon() -> None:
     if ipc.is_daemon_running():
-        print("mouseoverlay daemon is already running", file=sys.stderr)
+        print("nomouse daemon is already running", file=sys.stderr)
         sys.exit(1)
 
     import subprocess
@@ -28,15 +28,15 @@ def _start_daemon() -> None:
     log_path = _log_dir() / "daemon.log"
     log_file = open(log_path, "a")
     subprocess.Popen(
-        [sys.executable, "-m", "mouseoverlay.cli", "--foreground-daemon"],
+        [sys.executable, "-m", "nomouse.cli", "--foreground-daemon"],
         stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL,
         start_new_session=True,
     )
-    print(f"mouseoverlay daemon started (log: {log_path})")
+    print(f"nomouse daemon started (log: {log_path})")
 
 
 def _run_foreground_daemon() -> None:
-    from mouseoverlay.daemon import run_daemon
+    from nomouse.daemon import run_daemon
     run_daemon()
 
 
@@ -44,7 +44,7 @@ def _send(cmd: str) -> None:
     try:
         reply = ipc.send_command(cmd)
     except OSError:
-        print("mouseoverlay daemon is not running (start it with -d)", file=sys.stderr)
+        print("nomouse daemon is not running (start it with -d)", file=sys.stderr)
         sys.exit(1)
     if reply.startswith("ERR"):
         print(reply, file=sys.stderr)
@@ -53,9 +53,9 @@ def _send(cmd: str) -> None:
 
 def _status() -> None:
     if ipc.is_daemon_running():
-        print("mouseoverlay daemon is running")
+        print("nomouse daemon is running")
     else:
-        print("mouseoverlay daemon is not running")
+        print("nomouse daemon is not running")
         sys.exit(1)
 
 
@@ -65,11 +65,11 @@ def _run_sequence(numbers: list[int], button: str = "left") -> None:
     Bypasses the daemon/overlay entirely: no window is shown, no daemon
     needs to be running. Useful for scripting and for the accuracy test.
     """
-    from mouseoverlay import session
-    from mouseoverlay.clicker import click
-    from mouseoverlay.config import load_config
-    from mouseoverlay.grid import resolve_region
-    from mouseoverlay.monitors import get_focused_monitor
+    from nomouse import session
+    from nomouse.clicker import click
+    from nomouse.config import load_config
+    from nomouse.grid import resolve_region
+    from nomouse.monitors import get_focused_monitor
 
     backend = session.get_backend_name()
     config = load_config()
@@ -86,7 +86,7 @@ def _run_sequence(numbers: list[int], button: str = "left") -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="mouseoverlay")
+    parser = argparse.ArgumentParser(prog="nomouse")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-d", "--daemon", action="store_true", help="start the daemon in the background")
     group.add_argument("--foreground-daemon", action="store_true", help=argparse.SUPPRESS)

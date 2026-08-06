@@ -33,9 +33,9 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
-from mouseoverlay.config import Config
-from mouseoverlay.grid import Rect, cell_rect_rc
-from mouseoverlay.monitors import MonitorGeometry
+from nomouse.config import Config
+from nomouse.grid import Rect, cell_rect_rc
+from nomouse.monitors import MonitorGeometry
 
 log = logging.getLogger(__name__)
 
@@ -103,14 +103,14 @@ class OverlayWindow(Gtk.Window):
         css.load_from_data(
             f"""
             window {{ background-color: {self.config.background_rgba}; }}
-            .mouseoverlay-inputbar {{
+            .nomouse-inputbar {{
                 background-color: rgba(20, 20, 20, 0.55);
                 border: 2px solid rgba(255, 255, 255, 0.45);
                 border-radius: 10px;
                 padding: 8px 16px;
                 min-width: 220px;
             }}
-            .mouseoverlay-label {{
+            .nomouse-label {{
                 color: #ffffff;
                 font-size: 22px;
                 font-weight: bold;
@@ -173,13 +173,13 @@ class OverlayWindow(Gtk.Window):
         self.hint_bar: Optional[Gtk.Box] = None
         if self.config.show_hint:
             label = Gtk.Label(label="1a/a1=click  +Shift=zoom  +Ctrl=right")
-            label.get_style_context().add_class("mouseoverlay-label")
+            label.get_style_context().add_class("nomouse-label")
 
             bar = Gtk.Box()
             bar.set_valign(Gtk.Align.START)
             bar.set_halign(Gtk.Align.CENTER)
             bar.set_margin_top(32)
-            bar.get_style_context().add_class("mouseoverlay-inputbar")
+            bar.get_style_context().add_class("nomouse-inputbar")
             bar.pack_start(label, True, True, 0)
             overlay.add_overlay(bar)
             overlay.set_overlay_pass_through(bar, True)

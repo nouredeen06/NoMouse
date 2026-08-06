@@ -6,11 +6,11 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
-from mouseoverlay import ipc, session
-from mouseoverlay.clicker import click
-from mouseoverlay.config import Config, load_config
-from mouseoverlay.monitors import get_focused_monitor
-from mouseoverlay.overlay import OverlayWindow
+from nomouse import ipc, session
+from nomouse.clicker import click
+from nomouse.config import Config, load_config
+from nomouse.monitors import get_focused_monitor
+from nomouse.overlay import OverlayWindow
 
 log = logging.getLogger(__name__)
 

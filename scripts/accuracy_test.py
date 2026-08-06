@@ -13,11 +13,11 @@ import argparse
 import random
 import statistics
 
-from mouseoverlay import session
-from mouseoverlay.clicker import get_cursor_pos, move_to
-from mouseoverlay.config import load_config
-from mouseoverlay.grid import resolve_region
-from mouseoverlay.monitors import get_focused_monitor
+from nomouse import session
+from nomouse.clicker import get_cursor_pos, move_to
+from nomouse.config import load_config
+from nomouse.grid import resolve_region
+from nomouse.monitors import get_focused_monitor
 
 
 def main() -> None:

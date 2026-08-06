@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 
-from mouseoverlay.config import Config, StageGrid
-from mouseoverlay.monitors import MonitorGeometry
+from nomouse.config import Config, StageGrid
+from nomouse.monitors import MonitorGeometry
 
 
 @dataclass

@@ -1,25 +1,54 @@
-# mouseoverlay
+<p align="center">
+  <img src="assets/nomouse.jpeg" alt="NoMouse" width="360">
+</p>
 
-Keyboard-driven grid-click overlay for Hyprland and X11 — like macOS/iOS Voice
-Control screen clicking, but keyboard controlled.
+# NoMouse
 
-Runs as a background daemon. `mouseoverlay --show` pops up a grid overlay on
-the currently focused monitor. Each cell is labeled with a row digit (1-9)
-and a column letter (a-p), e.g. `1a` or `9i`. Press the digit and letter keys
-in either order — no Enter needed, it confirms as soon as both are set:
+Keyboard-driven grid-click overlay for Hyprland and X11 — like macOS/iOS
+Voice Control screen clicking, but keyboard controlled.
+
+Runs as a background daemon. `nomouse --show` pops up a grid overlay on the
+currently focused monitor. Each cell is labeled with a row digit (1-9) and a
+column letter (a-p), e.g. `1a` or `9i`. Press the digit and letter keys in
+either order — no Enter needed, it confirms as soon as both are set:
 
 - Plain: left-click that cell's center.
 - Hold **Shift** on the completing keystroke: zoom into that cell instead
   (up to 3 stages, each with a smaller grid).
 - Hold **Ctrl** on the completing keystroke: right-click that cell's center.
 
+## Prerequisites
+
+System packages (not pip-installable):
+
+- `gtk3`, `python-gobject` (GObject introspection for GTK3)
+- `gtk-layer-shell` (for the Hyprland/wlroots overlay layer surface)
+- `xdotool` (click execution on X11)
+- `ydotool` + a running `ydotoold` (click execution on Hyprland/Wayland)
+
+Plus Python 3.11+.
+
+## Install
+
+```
+git clone https://github.com/nouredeen06/NoMouse.git
+cd NoMouse
+scripts/install.sh
+```
+
+`scripts/install.sh` installs the missing system prerequisites via `pacman`
+(Arch only — on other distros, install the equivalents listed above
+manually first), pip-installs the package in editable mode, and enables the
+`ydotoold` user service if it isn't already running. Safe to re-run any time
+you pull new changes.
+
 ## Usage
 
 ```
-mouseoverlay -d        # start the daemon in the background
-mouseoverlay --show    # show the grid overlay
-mouseoverlay --stop    # stop the daemon
-mouseoverlay --status  # check whether the daemon is running
+nomouse -d        # start the daemon in the background
+nomouse --show    # show the grid overlay
+nomouse --stop    # stop the daemon
+nomouse --status  # check whether the daemon is running
 ```
 
 While the overlay is showing:
@@ -34,30 +63,15 @@ While the overlay is showing:
   (Ctrl+Enter right-clicks it).
 - Escape: cancel, close the overlay without clicking.
 
-A one-line hint fades out on its own after a couple seconds (or on the
-first keystroke); set `show_hint = false` in the config to skip it
-entirely and show no textbox at all.
+A one-line hint fades in/out on its own after a couple seconds (or on the
+first keystroke, whichever comes first) — see `show_hint` below to disable
+it entirely.
 
-## System prerequisites
-
-These are system packages, not pip-installable:
-
-- `gtk3`, `pygobject` (GObject introspection for GTK3)
-- `gtk-layer-shell` (for the Hyprland/wlroots overlay layer surface)
-- `xdotool` (click execution on X11)
-- `ydotool` + a running `ydotoold` (click execution on Hyprland/Wayland —
-  start `ydotoold` yourself, e.g. as a systemd user service; mouseoverlay
-  does not start it for you)
-
-## Install
-
-```
-pip install -e .
-```
+Multi-monitor: the overlay always shows on the currently focused monitor.
 
 ## Configuration
 
-Optional config file at `~/.config/mouseoverlay/config.toml`:
+Optional config file at `~/.config/nomouse/config.toml`:
 
 ```toml
 background_rgba = "rgba(0, 0, 0, 0.35)"
@@ -65,4 +79,26 @@ show_hint = true
 ```
 
 Missing or malformed config falls back to the defaults shown above. Grid
-stage sizes (16x9 -> 4x3 -> 2x2) are fixed in this branch, not configurable.
+stage sizes (16x9 -> 4x3 -> 2x2) are fixed, not configurable.
+
+## Scripted / headless clicking
+
+```
+nomouse --run 20 9 2   # walk stage1 cell 20 -> stage2 cell 9 -> stage3 cell 2, then click
+nomouse --run 20 9 --right
+```
+
+Bypasses the daemon/overlay entirely — no window shown, no daemon needs to
+be running. Note: `--run` uses the older numeric row-major cell addressing
+(one cell index per stage), independent of the interactive row/column
+overlay described above.
+
+## Accuracy testing
+
+```
+python3 scripts/accuracy_test.py 2 7 5 --iterations 1000
+```
+
+Randomizes the starting cursor position each trial, moves to a fixed
+target, and reports positioning error statistics. No clicks are fired, so
+it's safe to run at scale.

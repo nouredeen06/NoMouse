@@ -1,4 +1,4 @@
-"""Load ~/.config/mouseoverlay/config.toml with sane defaults."""
+"""Load ~/.config/nomouse/config.toml with sane defaults."""
 
 import logging
 import os
@@ -26,7 +26,7 @@ class Config:
 
 def _config_path() -> Path:
     config_home = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(config_home) / "mouseoverlay" / "config.toml"
+    return Path(config_home) / "nomouse" / "config.toml"
 
 
 def load_config() -> Config:
