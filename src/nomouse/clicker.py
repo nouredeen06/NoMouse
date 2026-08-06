@@ -18,16 +18,6 @@ def _hyprland_cursor_pos() -> tuple[int, int]:
     return int(x_str.strip()), int(y_str.strip())
 
 
-def get_cursor_pos(backend: str) -> tuple[int, int]:
-    if backend == "hyprland":
-        return _hyprland_cursor_pos()
-    out = subprocess.run(
-        ["xdotool", "getmouselocation", "--shell"], capture_output=True, check=True, text=True,
-    ).stdout
-    values = dict(line.split("=", 1) for line in out.strip().splitlines())
-    return int(values["X"]), int(values["Y"])
-
-
 def move_to(backend: str, x: int, y: int) -> None:
     """Move the pointer to absolute screen coordinates (no click)."""
     x, y = int(x), int(y)

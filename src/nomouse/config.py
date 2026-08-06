@@ -3,23 +3,14 @@
 import logging
 import os
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
-class StageGrid:
-    cols: int
-    rows: int
-
-
-@dataclass
 class Config:
-    stage1: StageGrid = field(default_factory=lambda: StageGrid(cols=8, rows=6))
-    stage2: StageGrid = field(default_factory=lambda: StageGrid(cols=4, rows=3))
-    stage3: StageGrid = field(default_factory=lambda: StageGrid(cols=3, rows=3))
     background_rgba: str = "rgba(0, 0, 0, 0.35)"
     show_hint: bool = True
 
@@ -41,15 +32,6 @@ def load_config() -> Config:
     except (OSError, tomllib.TOMLDecodeError) as exc:
         log.warning("failed to read config %s: %s, using defaults", path, exc)
         return config
-
-    for stage_name in ("stage1", "stage2", "stage3"):
-        stage_data = data.get(stage_name)
-        if not isinstance(stage_data, dict):
-            continue
-        default_grid = getattr(config, stage_name)
-        cols = stage_data.get("cols", default_grid.cols)
-        rows = stage_data.get("rows", default_grid.rows)
-        setattr(config, stage_name, StageGrid(cols=cols, rows=rows))
 
     background_rgba = data.get("background_rgba")
     if isinstance(background_rgba, str):

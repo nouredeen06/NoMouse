@@ -5,17 +5,9 @@
 # NoMouse
 
 Keyboard-driven grid-click overlay for Hyprland and X11 — like macOS/iOS
-Voice Control screen clicking, but keyboard controlled.
-
-Runs as a background daemon. `nomouse --show` pops up a grid overlay on the
-currently focused monitor. Each cell is labeled with a row digit (1-9) and a
-column letter (a-p), e.g. `1a` or `9i`. Press the digit and letter keys in
-either order — no Enter needed, it confirms as soon as both are set:
-
-- Plain: left-click that cell's center.
-- Hold **Shift** on the completing keystroke: zoom into that cell instead
-  (up to 3 stages, each with a smaller grid).
-- Hold **Ctrl** on the completing keystroke: right-click that cell's center.
+Voice Control screen clicking, but keyboard controlled. Runs as a background
+daemon; a keypress pops up a grid on the focused monitor and you click by
+typing a cell's row+column label instead of moving a mouse.
 
 ## Prerequisites
 
@@ -51,10 +43,20 @@ nomouse --stop    # stop the daemon
 nomouse --status  # check whether the daemon is running
 ```
 
-While the overlay is showing:
+`nomouse --show` pops up a grid overlay on the currently focused monitor.
+Each cell is labeled with a row digit (1-9) and a column letter (a-p), e.g.
+`1a` or `9i`. Press the digit and letter keys in either order — no Enter
+needed, it confirms as soon as both are set:
 
-- Type a digit or letter: highlights that row/column band; once both are
-  set it fires immediately (see above for the Shift/Ctrl modifiers).
+- Plain: left-click that cell's center.
+- Hold **Shift** on the completing keystroke: zoom into that cell instead
+  (up to 3 stages, each with a smaller grid).
+- Hold **Ctrl** on the completing keystroke: right-click that cell's center.
+
+Other controls while the overlay is showing:
+
+- Type a digit or letter: highlights that row/column band before the pair
+  is complete.
 - Only one digit and one letter can be held at a time — a second press of
   an already-filled slot is ignored.
 - Backspace: clears the most recently set digit/letter, or goes back one
@@ -80,25 +82,3 @@ show_hint = true
 
 Missing or malformed config falls back to the defaults shown above. Grid
 stage sizes (16x9 -> 4x3 -> 2x2) are fixed, not configurable.
-
-## Scripted / headless clicking
-
-```
-nomouse --run 20 9 2   # walk stage1 cell 20 -> stage2 cell 9 -> stage3 cell 2, then click
-nomouse --run 20 9 --right
-```
-
-Bypasses the daemon/overlay entirely — no window shown, no daemon needs to
-be running. Note: `--run` uses the older numeric row-major cell addressing
-(one cell index per stage), independent of the interactive row/column
-overlay described above.
-
-## Accuracy testing
-
-```
-python3 scripts/accuracy_test.py 2 7 5 --iterations 1000
-```
-
-Randomizes the starting cursor position each trial, moves to a fixed
-target, and reports positioning error statistics. No clicks are fired, so
-it's safe to run at scale.
