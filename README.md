@@ -4,10 +4,9 @@
 
 # NoMouse
 
-Keyboard-driven grid-click overlay for Hyprland and X11 — like macOS/iOS
-Voice Control screen clicking, but keyboard controlled. Runs as a background
-daemon; a keypress pops up a grid on the focused monitor and you click by
-typing a cell's row+column label instead of moving a mouse.
+Keyboard-driven grid-click overlay for Hyprland and X11. Runs as a
+background daemon; a keypress pops up a grid on the focused monitor and you
+click by typing a cell's row+column label instead of moving a mouse.
 
 ## Prerequisites
 
