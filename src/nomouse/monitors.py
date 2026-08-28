@@ -30,22 +30,38 @@ def _get_focused_monitor_hyprland() -> MonitorGeometry:
             capture_output=True, check=True, text=True,
         ).stdout
         monitors = json.loads(out)
-        for mon in monitors:
-            if mon.get("focused"):
-                return MonitorGeometry(
-                    x=mon["x"], y=mon["y"],
-                    width=mon["width"], height=mon["height"],
-                    scale=mon.get("scale", 1.0),
-                )
-        log.warning("hyprctl monitors: no focused monitor found, using first")
-        mon = monitors[0]
-        return MonitorGeometry(
-            x=mon["x"], y=mon["y"], width=mon["width"], height=mon["height"],
-            scale=mon.get("scale", 1.0),
-        )
+        focused = next((m for m in monitors if m.get("focused")), None)
+        if focused is None:
+            log.warning("hyprctl monitors: no focused monitor found, using first")
+            focused = monitors[0]
+        return _geometry_from_hypr_monitor(focused)
     except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, IndexError, KeyError) as exc:
         log.error("failed to query hyprctl monitors: %s", exc)
         raise
+
+
+def _geometry_from_hypr_monitor(mon: dict) -> MonitorGeometry:
+    """Build geometry in *logical* pixels.
+
+    hyprctl reports ``width``/``height`` in physical device pixels but
+    ``x``/``y`` (and the cursor coordinate space that ydotool / hyprctl
+    cursorpos operate in) in logical pixels. On a fractionally scaled
+    output the two disagree, so mixing a logical origin with a physical
+    size makes the grid span past the real monitor and the pointer
+    overshoot by the scale factor. Divide the size down to logical units
+    so every coordinate the app produces is in the same space Hyprland
+    moves the cursor in.
+    """
+    scale = mon.get("scale", 1.0) or 1.0
+    transform = mon.get("transform", 0)
+    phys_w, phys_h = mon["width"], mon["height"]
+    if transform in (1, 3, 5, 7):  # 90/270-degree rotations swap axes
+        phys_w, phys_h = phys_h, phys_w
+    return MonitorGeometry(
+        x=mon["x"], y=mon["y"],
+        width=round(phys_w / scale), height=round(phys_h / scale),
+        scale=scale,
+    )
 
 
 def _get_focused_monitor_x11() -> MonitorGeometry:
