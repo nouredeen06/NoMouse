@@ -254,13 +254,11 @@ class OverlayWindow(Gtk.Window):
         cols, rows = self._stage_dims()
         ox, oy = self.monitor.x, self.monitor.y
 
-        # On a scaled Hyprland output (layer-shell), the drawing area's
-        # actual canvas is sized in *logical* pixels while self.monitor is
-        # in physical pixels from hyprctl - drawing straight in physical
-        # units overruns the real canvas (e.g. only the top-left ~60% of
-        # the grid is visible at 1.67x scale). Derive the scale from the
-        # real allocation rather than trusting monitor.scale, so it's
-        # self-correcting regardless of backend/rounding.
+        # monitor geometry is already in logical pixels, so this ratio is
+        # normally ~1.0, but derive it from the real allocation anyway
+        # rather than trusting monitor.scale: it stays self-correcting if
+        # the canvas and the reported logical size disagree by a rounding
+        # pixel or the backend hands us a physical-sized canvas.
         alloc = self.drawing_area.get_allocation()
         sx = alloc.width / self.monitor.width if self.monitor.width else 1.0
         sy = alloc.height / self.monitor.height if self.monitor.height else 1.0
